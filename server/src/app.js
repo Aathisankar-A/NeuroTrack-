@@ -22,6 +22,8 @@ import aiRoutes from './routes/ai.routes.js';
 import quizRoutes from './routes/quiz.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import resourceRoutes from './routes/resource.routes.js';
+import roomRoutes from './routes/room.routes.js';
+import classroomRoutes from './routes/classroom.routes.js';
 
 // Load background jobs
 import './jobs/index.js';
@@ -33,12 +35,31 @@ const app = express();
 
 // 1. Security Middleware
 app.use(helmet());
+
+// CORS: allow requests from the configured frontend URL.
+// FRONTEND_URL must be set to your Vercel deployment URL in production,
+// e.g. https://neurotrack.vercel.app
+// Multiple origins can be supported by splitting a comma-separated env var.
+const allowedOrigins = env.FRONTEND_URL
+    ? env.FRONTEND_URL.split(',').map(o => o.trim())
+    : ['http://localhost:5173'];
+
 app.use(
     cors({
-        origin: env.FRONTEND_URL,
+        origin: (origin, callback) => {
+            // Allow requests with no origin (curl, Postman, server-to-server)
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.includes(origin)) return callback(null, true);
+            callback(new Error(`CORS: origin ${origin} not allowed`));
+        },
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
     })
 );
+
+// Handle pre-flight OPTIONS requests for all routes
+app.options('*', cors());
 
 // 2. Body Parsers & Security
 app.use(express.json({ limit: '10kb' }));
@@ -71,6 +92,8 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/resources', resourceRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/classrooms', classroomRoutes);
 
 // 5. Health Check
 app.get('/api/health', (req, res) => {

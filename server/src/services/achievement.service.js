@@ -1,4 +1,5 @@
 import Achievement from '../models/Achievement.js';
+import User from '../models/User.js';
 import { emitToUser } from '../config/socket.js';
 
 class AchievementService {
@@ -53,6 +54,8 @@ class AchievementService {
             badgeId,
             ...badge
         });
+
+        await User.findByIdAndUpdate(userId, { $addToSet: { badges: badgeId } });
 
         emitToUser(userId, 'achievementEarned', achievement);
         return achievement;
