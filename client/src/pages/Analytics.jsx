@@ -28,6 +28,9 @@ import {
 } from 'chart.js';
 import { Line, Doughnut } from 'react-chartjs-2';
 import api from '../api/axios';
+import CognitiveScore from '../components/analytics/CognitiveScore';
+import HeatmapChart from '../components/analytics/HeatmapChart';
+import PredictiveInsights from '../components/analytics/PredictiveInsights';
 
 ChartJS.register(
     CategoryScale,
@@ -251,6 +254,24 @@ const Analytics = () => {
                 </Card>
             </div>
 
+            {/* Cognitive Analytics & Predictive Insights */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                    <CognitiveScore overviewData={overviewData} />
+                </div>
+                <div className="lg:col-span-2">
+                    <Card className="p-6 h-full flex flex-col">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-[#E5E5E5]">Predictive Insights</h3>
+                            <p className="text-xs font-medium text-gray-500 dark:text-[#9CA3AF] mt-0.5">AI-powered trend analysis</p>
+                        </div>
+                        <div className="flex-1">
+                            <PredictiveInsights overviewData={overviewData} />
+                        </div>
+                    </Card>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className="min-h-[400px] flex flex-col p-6">
                     <div className="flex items-center justify-between mb-8">
@@ -287,8 +308,8 @@ const Analytics = () => {
                                 <Doughnut data={doughnutData} options={doughnutOptions} />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none md:pr-32 pr-24">
                                     <div className="text-center">
-                                         <p className="text-3xl font-black text-gray-900 dark:text-[#E5E5E5]">{sessionsCompleted}</p>
-                                         <p className="text-[10px] font-bold text-gray-400 dark:text-[#9CA3AF] uppercase tracking-widest mt-0.5">Sessions</p>
+                                        <p className="text-3xl font-black text-gray-900 dark:text-[#E5E5E5]">{sessionsCompleted}</p>
+                                        <p className="text-[10px] font-bold text-gray-400 dark:text-[#9CA3AF] uppercase tracking-widest mt-0.5">Sessions</p>
                                     </div>
                                 </div>
                             </div>
@@ -298,6 +319,17 @@ const Analytics = () => {
                     </div>
                 </Card>
             </div>
+
+            {/* Heatmap Section */}
+            <Card className="p-6">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-[#E5E5E5]">Focus Heatmap</h3>
+                        <p className="text-xs font-medium text-gray-500 dark:text-[#9CA3AF] mt-0.5">Your study activity across time and days</p>
+                    </div>
+                </div>
+                <HeatmapChart dailyFocus={dailyFocus} />
+            </Card>
         </div>
     );
 };

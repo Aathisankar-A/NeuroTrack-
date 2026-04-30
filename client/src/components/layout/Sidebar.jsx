@@ -9,7 +9,9 @@ import {
     BrainCircuit,
     Settings,
     LogOut,
-    Library
+    Library,
+    Users,
+    GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -19,6 +21,7 @@ const Sidebar = () => {
     const links = [
         { to: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { to: '/sessions', name: 'Focus Sessions', icon: <Timer size={20} /> },
+        { to: '/rooms', name: 'Study Rooms', icon: <Users size={20} /> },
         { to: '/tasks', name: 'Tasks', icon: <CheckSquare size={20} /> },
         { to: '/analytics', name: 'Analytics', icon: <BarChart3 size={20} /> },
         { to: '/resources', name: 'Resources', icon: <Library size={20} /> },
@@ -26,6 +29,10 @@ const Sidebar = () => {
         { to: '/quiz', name: 'AI Assistant', icon: <BrainCircuit size={20} /> },
         { to: '/settings', name: 'Settings', icon: <Settings size={20} /> },
     ];
+
+    if (user?.role === 'teacher' || user?.role === 'admin') {
+        links.splice(1, 0, { to: '/teacher', name: 'Teacher Dashboard', icon: <GraduationCap size={20} /> });
+    }
 
     // XP constants (matching backend)
     const getXpForLevel = (level) => {

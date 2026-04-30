@@ -16,6 +16,9 @@ import AIInsights from '../pages/AiInsights';
 import Quiz from '../pages/Quiz';
 import Settings from '../pages/Settings';
 import Resources from '../pages/Resources';
+import Rooms from '../pages/Rooms';
+import RoomSession from '../pages/RoomSession';
+import TeacherDashboard from '../pages/TeacherDashboard';
 
 const AppRouter = () => {
     return (
@@ -35,12 +38,15 @@ const AppRouter = () => {
                     }>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/sessions" element={<Sessions />} />
+                        <Route path="/rooms" element={<Rooms />} />
+                        <Route path="/rooms/:id" element={<RoomSession />} />
                         <Route path="/tasks" element={<Tasks />} />
                         <Route path="/analytics" element={<Analytics />} />
                         <Route path="/resources" element={<Resources />} />
                         <Route path="/ai-insights" element={<AIInsights />} />
                         <Route path="/quiz" element={<Quiz />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/teacher" element={<TeacherDashboard />} />
                     </Route>
                 </Route>
 

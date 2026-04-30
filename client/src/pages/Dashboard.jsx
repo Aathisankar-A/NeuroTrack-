@@ -9,22 +9,24 @@ import {
 import api from '../api/axios';
 import useAuth from '../hooks/useAuth';
 import SessionCard from '../components/session/SessionCard';
+import StreakTracker from '../components/gamification/StreakTracker';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    
+
     // Keeping all original state maps to avoid breaking logic
     const [stats, setStats] = useState({ focusMinutes: 0, taskCompletion: 0, burnoutRisk: 'Low' });
     const [goals, setGoals] = useState({ dailyFocusGoal: 120 });
     const [trendData, setTrendData] = useState([]);
     const [achievements, setAchievements] = useState([]);
     const [history, setHistory] = useState([]);
-    
+
     // New Feature State
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -55,13 +57,14 @@ const Dashboard = () => {
                 setTrendData(trendRes.data.data || []);
                 setAchievements(achRes.data.data || []);
                 setHistory(histRes.data.data || []);
-                
+
                 // Set and sort today's sessions natively
                 const sorted = (sessionsRes.data.data || []).sort((a, b) => a.startTime.localeCompare(b.startTime));
                 setSessions(sorted);
-                
+                setError(false);
             } catch (err) {
                 console.error('Failed to fetch dashboard stats');
+                setError(true);
             } finally {
                 setLoading(false);
             }
@@ -134,7 +137,7 @@ const Dashboard = () => {
                         {formatDate(todayStr)}
                     </div>
                 </div>
-                
+
                 {/* Minimal Quick Stats */}
                 <div className="flex gap-4">
                     <Card className="px-5 py-3 flex items-center gap-4 bg-gray-50 dark:bg-[#1E1E1E] shadow-none border-none">
@@ -156,57 +159,69 @@ const Dashboard = () => {
 
             {loading ? (
                 <div className="h-40 bg-gray-50 dark:bg-[#1E1E1E] rounded-xl animate-pulse" />
+            ) : error ? (
+                <div className="text-center py-16 bg-red-50 dark:bg-red-900/10 rounded-xl border border-dashed border-red-200 dark:border-red-900/20">
+                    <AlertTriangle className="mx-auto text-red-400 dark:text-red-500 mb-3" size={32} />
+                    <p className="text-red-600 dark:text-red-400 font-medium">Failed to load dashboard data. Please try again.</p>
+                </div>
             ) : (
-                <div className="grid grid-cols-1 gap-10">
-                    
-                    {/* Next Session Hero */}
-                    {nextSession && (
-                        <div>
-                            <h2 className="text-sm font-bold text-gray-500 dark:text-[#9CA3AF] uppercase tracking-widest mb-4 flex items-center">
-                                <span className="w-2 h-2 rounded-full bg-primary-500 mr-2 animate-pulse" />
-                                Up Next
-                            </h2>
-                            <SessionCard
-                                session={nextSession}
-                                showFullDate={false}
-                                onStart={handleStart}
-                                onPause={handlePause}
-                                onResume={handleResume}
-                                onStop={handleStop}
-                                onDelete={handleDelete}
-                            />
-                        </div>
-                    )}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
-                    {/* Today's Schedule Map */}
-                    <div>
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-[#E5E5E5]">Today's Sessions</h2>
-                            <Button variant="outline" size="sm" onClick={() => navigate('/sessions')}>Manage Schedule</Button>
-                        </div>
-                        
-                        {sessions.length === 0 ? (
-                            <div className="text-center py-16 bg-gray-50 dark:bg-[#1E1E1E] rounded-xl border border-dashed border-gray-200 dark:border-[#2A2A2A]">
-                                <Clock className="mx-auto text-gray-400 dark:text-[#9CA3AF] mb-3" size={32} />
-                                <p className="text-gray-500 dark:text-[#9CA3AF] font-medium">Your schedule is completely clear today.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {sessions.map((session, index) => (
-                                    <SessionCard
-                                        key={session._id}
-                                        session={session}
-                                        previousSession={index > 0 ? sessions[index - 1] : null}
-                                        showFullDate={false}
-                                        onStart={handleStart}
-                                        onPause={handlePause}
-                                        onResume={handleResume}
-                                        onStop={handleStop}
-                                        onDelete={handleDelete}
-                                    />
-                                ))}
+                    <div className="lg:col-span-2 space-y-10">
+                        {/* Next Session Hero */}
+                        {nextSession && (
+                            <div>
+                                <h2 className="text-sm font-bold text-gray-500 dark:text-[#9CA3AF] uppercase tracking-widest mb-4 flex items-center">
+                                    <span className="w-2 h-2 rounded-full bg-primary-500 mr-2 animate-pulse" />
+                                    Up Next
+                                </h2>
+                                <SessionCard
+                                    session={nextSession}
+                                    showFullDate={false}
+                                    onStart={handleStart}
+                                    onPause={handlePause}
+                                    onResume={handleResume}
+                                    onStop={handleStop}
+                                    onDelete={handleDelete}
+                                />
                             </div>
                         )}
+
+                        {/* Today's Schedule Map */}
+                        <div>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-[#E5E5E5]">Today's Sessions</h2>
+                                <Button variant="outline" size="sm" onClick={() => navigate('/sessions')}>Manage Schedule</Button>
+                            </div>
+
+                            {sessions.length === 0 ? (
+                                <div className="text-center py-16 bg-gray-50 dark:bg-[#1E1E1E] rounded-xl border border-dashed border-gray-200 dark:border-[#2A2A2A]">
+                                    <Clock className="mx-auto text-gray-400 dark:text-[#9CA3AF] mb-3" size={32} />
+                                    <p className="text-gray-500 dark:text-[#9CA3AF] font-medium">Your schedule is completely clear today.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {sessions.map((session, index) => (
+                                        <SessionCard
+                                            key={session._id}
+                                            session={session}
+                                            previousSession={index > 0 ? sessions[index - 1] : null}
+                                            showFullDate={false}
+                                            onStart={handleStart}
+                                            onPause={handlePause}
+                                            onResume={handleResume}
+                                            onStop={handleStop}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Gamification Sidebar */}
+                    <div className="space-y-6">
+                        <StreakTracker />
                     </div>
                 </div>
             )}
