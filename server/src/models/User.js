@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
         },
         role: {
             type: String,
-            enum: ['user', 'admin'],
+            enum: ['user', 'teacher', 'admin'],
             default: 'user',
         },
         refreshToken: {
@@ -41,6 +41,18 @@ const userSchema = new mongoose.Schema(
         level: {
             type: Number,
             default: 1,
+        },
+        streak: {
+            type: Number,
+            default: 0,
+        },
+        neuroCoins: {
+            type: Number,
+            default: 0,
+        },
+        badges: {
+            type: [String],
+            default: [],
         },
     },
     {

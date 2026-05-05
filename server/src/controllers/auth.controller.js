@@ -19,17 +19,22 @@ class AuthController {
         const { user, accessToken, refreshToken } = await AuthService.loginUser(email, password);
 
         // Set tokens in HttpOnly cookies
-        res.cookie('refreshToken', refreshToken, {
+        // sameSite: 'lax' works for same-site (Vercel frontend + Vercel API functions)
+        // If ever split to separate domains, change to 'none' + secure: true
+        const cookieOptions = {
             httpOnly: true,
             secure: env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/',
+        };
+
+        res.cookie('refreshToken', refreshToken, {
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
         res.cookie('accessToken', accessToken, {
-            httpOnly: true,
-            secure: env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000, // 15 mins
         });
 
