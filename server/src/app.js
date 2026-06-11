@@ -33,6 +33,9 @@ import './jobs/index.js';
  */
 const app = express();
 
+// 0. Trust Proxy (Required for Render/Vercel)
+app.set('trust proxy', 1);
+
 // 1. Security Middleware
 app.use(helmet());
 
