@@ -24,10 +24,13 @@ export const SCORING = {
 // Session status values
 export const SESSION_STATUS = {
     SCHEDULED: 'scheduled',
-    RUNNING: 'running',
+    ACTIVE: 'active',
     PAUSED: 'paused',
     COMPLETED: 'completed',
-    MISSED: 'missed',
+    STOPPED_EARLY: 'stopped early',
+    ABANDONED: 'abandoned',
+    RUNNING: 'running', // backward compatibility
+    MISSED: 'missed', // backward compatibility
 };
 
 // Task difficulty levels

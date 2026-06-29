@@ -28,7 +28,7 @@ const sessionSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['scheduled', 'running', 'paused', 'completed', 'missed'],
+            enum: ['scheduled', 'active', 'paused', 'completed', 'stopped early', 'abandoned', 'missed', 'running'],
             default: 'scheduled',
         },
         focusRating: {
@@ -52,6 +52,17 @@ const sessionSchema = new mongoose.Schema(
         },
         endedAt: {
             type: Date,
+        },
+        plannedDuration: {
+            type: Number,
+        },
+        actualDuration: {
+            type: Number,
+            default: 0,
+        },
+        completionPercentage: {
+            type: Number,
+            default: 0,
         },
         actualStartTime: Date,
         actualEndTime: Date,

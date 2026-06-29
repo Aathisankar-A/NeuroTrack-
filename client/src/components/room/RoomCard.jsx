@@ -1,10 +1,13 @@
 import React from 'react';
-import { Users, Lock, Unlock, Play } from 'lucide-react';
+import { Users, Lock, Unlock, Play, Trash2 } from 'lucide-react';
 import { Card, Button } from '../ui';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
-const RoomCard = ({ room }) => {
+const RoomCard = ({ room, onDelete }) => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isHost = user && room.host && (room.host._id === user._id || room.host === user._id);
 
     return (
         <Card className="flex flex-col p-6 transition-all duration-300 hover:border-primary-200 dark:hover:border-primary-900 group h-full relative overflow-hidden">
@@ -37,13 +40,26 @@ const RoomCard = ({ room }) => {
                     <Users size={16} />
                     <span>{room.participants?.length || 0} / {room.maxParticipants}</span>
                 </div>
-                <Button 
-                    size="sm" 
-                    className="rounded-xl px-5 flex items-center gap-2"
-                    onClick={() => navigate(`/rooms/${room._id}`)}
-                >
-                    <Play size={14} fill="currentColor" /> Join
-                </Button>
+                <div className="flex items-center gap-2">
+                    {isHost && onDelete && (
+                        <button 
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(room._id);
+                            }}
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                    <Button 
+                        size="sm" 
+                        className="rounded-xl px-5 flex items-center gap-2"
+                        onClick={() => navigate(`/rooms/${room._id}`)}
+                    >
+                        <Play size={14} fill="currentColor" /> Join
+                    </Button>
+                </div>
             </div>
         </Card>
     );

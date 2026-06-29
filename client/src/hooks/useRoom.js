@@ -62,6 +62,14 @@ export const useRoom = (roomId) => {
         if (socket) socket.emit('room:timer:pause', { roomId });
     }, [socket, roomId]);
 
+    const resetTimer = useCallback(() => {
+        if (socket) socket.emit('room:timer:reset', { roomId });
+    }, [socket, roomId]);
+
+    const inviteUser = useCallback((inviteeId, roomName, inviterName) => {
+        if (socket) socket.emit('room:invite', { roomId, roomName, inviteeId, inviterName });
+    }, [socket, roomId]);
+
     const sendStatus = useCallback((status) => {
         if (socket && user) socket.emit('room:participant:status', { roomId, userId: user.id, status });
     }, [socket, roomId, user]);
@@ -76,6 +84,8 @@ export const useRoom = (roomId) => {
         reactions,
         startTimer,
         pauseTimer,
+        resetTimer,
+        inviteUser,
         sendStatus,
         sendReaction
     };

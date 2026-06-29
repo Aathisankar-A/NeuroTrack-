@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 
 let io;
+const roomTimers = new Map();
 
 export const initSocket = (server) => {
     io = new Server(server, {
@@ -15,7 +16,7 @@ export const initSocket = (server) => {
         console.log(`📡 New Socket Connection: ${socket.id}`);
 
         socket.on('join', (userId) => {
-            socket.join(userId);
+            socket.join(userId); // Join a room named after their userId for direct messages
             console.log(`👤 User joined personal room: ${userId}`);
         });
 
@@ -24,6 +25,18 @@ export const initSocket = (server) => {
             socket.join(roomId);
             console.log(`👥 User ${userId} joined study room: ${roomId}`);
             socket.to(roomId).emit('room:participant:joined', { userId });
+            
+            const timer = roomTimers.get(roomId) || { status: 'idle', duration: 25, timeLeft: 25 * 60, totalDuration: 25 * 60 };
+            if (timer.status === 'running') {
+                const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
+                timer.timeLeft = Math.max(0, timer.totalDuration - elapsed);
+            }
+            socket.emit('room:timer:sync', {
+                status: timer.status,
+                duration: timer.duration,
+                timeLeft: timer.timeLeft,
+                startedAt: timer.startedAt
+            });
         });
 
         socket.on('room:leave', ({ roomId, userId }) => {
@@ -34,11 +47,61 @@ export const initSocket = (server) => {
 
         // Timer Sync
         socket.on('room:timer:start', ({ roomId, duration }) => {
-            io.to(roomId).emit('room:timer:sync', { status: 'running', duration, startedAt: Date.now() });
+            let timer = roomTimers.get(roomId);
+            
+            if (timer && timer.status === 'paused' && !duration) {
+                // Resume
+                timer.status = 'running';
+                timer.startedAt = Date.now();
+                timer.totalDuration = timer.timeLeft;
+            } else {
+                // Start New
+                const dur = duration || 25;
+                timer = {
+                    status: 'running',
+                    duration: dur,
+                    timeLeft: dur * 60,
+                    totalDuration: dur * 60,
+                    startedAt: Date.now()
+                };
+            }
+            roomTimers.set(roomId, timer);
+            io.to(roomId).emit('room:timer:sync', {
+                status: timer.status,
+                duration: timer.duration,
+                timeLeft: timer.timeLeft,
+                startedAt: timer.startedAt
+            });
         });
 
         socket.on('room:timer:pause', ({ roomId }) => {
-            io.to(roomId).emit('room:timer:sync', { status: 'paused' });
+            const timer = roomTimers.get(roomId);
+            if (timer && timer.status === 'running') {
+                const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
+                timer.timeLeft = Math.max(0, timer.totalDuration - elapsed);
+                timer.status = 'paused';
+                timer.startedAt = null;
+                roomTimers.set(roomId, timer);
+            }
+            const currentTimer = timer || { status: 'paused', duration: 25, timeLeft: 25 * 60 };
+            io.to(roomId).emit('room:timer:sync', {
+                status: currentTimer.status,
+                duration: currentTimer.duration,
+                timeLeft: currentTimer.timeLeft,
+                startedAt: null
+            });
+        });
+
+        socket.on('room:timer:reset', ({ roomId }) => {
+            const timer = {
+                status: 'idle',
+                duration: 25,
+                timeLeft: 25 * 60,
+                totalDuration: 25 * 60,
+                startedAt: null
+            };
+            roomTimers.set(roomId, timer);
+            io.to(roomId).emit('room:timer:sync', timer);
         });
 
         // Participant Status
@@ -78,6 +141,15 @@ export const initSocket = (server) => {
         // Cursor Tracking
         socket.on('cursor:move', ({ roomId, userId, name, x, y }) => {
             socket.to(roomId).volatile.emit('cursor:move:received', { userId, name, x, y });
+        });
+
+        // Room Invitations
+        socket.on('room:invite', ({ roomId, roomName, inviteeId, inviterName }) => {
+            io.to(inviteeId).emit('room:invite:received', { roomId, roomName, inviterName });
+        });
+
+        socket.on('room:invite:declined', ({ inviterId, inviteeName, reason }) => {
+            io.to(inviterId).emit('room:invite:declined:received', { inviteeName, reason });
         });
 
         // WebRTC Signaling

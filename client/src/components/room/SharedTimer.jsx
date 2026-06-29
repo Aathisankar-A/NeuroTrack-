@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Play, Pause, Square, Clock } from 'lucide-react';
 import { Card, Button } from '../ui';
 
-const SharedTimer = ({ timerState, onStart, onPause }) => {
+const SharedTimer = ({ timerState, onStart, onPause, onReset }) => {
     const [timeLeft, setTimeLeft] = useState(timerState?.duration * 60 || 25 * 60);
 
     useEffect(() => {
@@ -10,8 +10,10 @@ const SharedTimer = ({ timerState, onStart, onPause }) => {
 
         if (timerState.status === 'running' && timerState.startedAt) {
             const passed = Math.floor((Date.now() - new Date(timerState.startedAt).getTime()) / 1000);
-            const remaining = (timerState.duration * 60) - passed;
+            const remaining = (timerState.timeLeft !== undefined ? timerState.timeLeft : timerState.duration * 60) - passed;
             setTimeLeft(remaining > 0 ? remaining : 0);
+        } else if (timerState.status === 'paused') {
+            setTimeLeft(timerState.timeLeft !== undefined ? timerState.timeLeft : timerState.duration * 60);
         } else {
             setTimeLeft(timerState.duration * 60);
         }
@@ -55,12 +57,26 @@ const SharedTimer = ({ timerState, onStart, onPause }) => {
                 </div>
                 
                 <div className="flex gap-2">
+                    {timerState?.status !== 'idle' && (
+                        <Button onClick={onReset} className="rounded-full w-10 h-10 p-0 flex items-center justify-center border border-gray-200 dark:border-[#2A2A2A] bg-transparent text-gray-500 hover:text-red-500 dark:hover:text-red-400">
+                            <Square size={16} fill="currentColor" />
+                        </Button>
+                    )}
                     {timerState?.status === 'running' ? (
                         <Button onClick={onPause} className="rounded-full w-10 h-10 p-0 flex items-center justify-center shadow-md shadow-primary-500/20">
                             <Pause size={18} fill="currentColor" />
                         </Button>
                     ) : (
-                        <Button onClick={() => onStart(25)} className="rounded-full w-10 h-10 p-0 flex items-center justify-center shadow-md shadow-primary-500/20">
+                        <Button 
+                            onClick={() => {
+                                if (timerState?.status === 'paused') {
+                                    onStart();
+                                } else {
+                                    onStart(25);
+                                }
+                            }} 
+                            className="rounded-full w-10 h-10 p-0 flex items-center justify-center shadow-md shadow-primary-500/20"
+                        >
                             <Play size={18} fill="currentColor" className="ml-0.5" />
                         </Button>
                     )}

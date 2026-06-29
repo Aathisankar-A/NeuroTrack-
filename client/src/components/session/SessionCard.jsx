@@ -96,7 +96,7 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
     };
 
     const fetchSessionTasks = useCallback(async () => {
-        if (session.status === 'running') {
+        if (session.status === 'active' || session.status === 'running') {
             setTasksLoading(true);
             try {
                 const res = await api.get(`/tasks?subject=${encodeURIComponent(session.subject)}&status=pending`);
@@ -124,23 +124,23 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
 
     // Calculate initial time left
     useEffect(() => {
-        if (session.status === 'running') {
+        if (session.status === 'active' || session.status === 'running') {
             const start = new Date(session.actualStartTime).getTime();
             const now = new Date().getTime();
             const elapsedSeconds = Math.floor((now - start) / 1000);
-            const totalDurationSeconds = session.duration * 60;
+            const totalDurationSeconds = (session.plannedDuration || session.duration) * 60;
             const remaining = Math.max(0, totalDurationSeconds - elapsedSeconds - session.pausedTime);
             setTimeLeft(remaining);
         } else if (session.status === 'paused' || session.status === 'scheduled') {
-            const totalDurationSeconds = session.duration * 60;
+            const totalDurationSeconds = (session.plannedDuration || session.duration) * 60;
             setTimeLeft(totalDurationSeconds - session.pausedTime);
         }
-    }, [session.status, session.actualStartTime, session.duration, session.pausedTime]);
+    }, [session.status, session.actualStartTime, session.plannedDuration, session.duration, session.pausedTime]);
 
     // Timer effect
     useEffect(() => {
         let interval;
-        if (session.status === 'running' && timeLeft > 0) {
+        if ((session.status === 'active' || session.status === 'running') && timeLeft > 0) {
             interval = setInterval(() => {
                 setTimeLeft(prev => {
                     if (prev <= 1) {
@@ -188,19 +188,22 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
     const getStatusColor = (status) => {
         switch (status) {
             case 'scheduled': return 'primary';
+            case 'active':
             case 'running': return 'success';
             case 'paused': return 'warning';
             case 'completed': return 'default';
+            case 'stopped early': return 'warning';
+            case 'abandoned': return 'error';
             case 'missed': return 'error';
             default: return 'default';
         }
     };
 
     return (
-        <Card className={`overflow-hidden transition-all duration-300 ${session.status === 'running' ? 'ring-1 ring-primary-500/50 shadow-md scale-[1.01]' : 'hover:border-primary-200 dark:hover:border-[#2A2A2A]'}`}>
+        <Card className={`overflow-hidden transition-all duration-300 ${session.status === 'active' || session.status === 'running' ? 'ring-1 ring-primary-500/50 shadow-md scale-[1.01]' : 'hover:border-primary-200 dark:hover:border-[#2A2A2A]'}`}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center space-x-5">
-                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${session.status === 'running' ? 'bg-primary-600 text-white shadow-sm' : 'bg-primary-50 dark:bg-[#2A2A2A] text-primary-600 dark:text-primary-400'
+                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${session.status === 'active' || session.status === 'running' ? 'bg-primary-600 text-white shadow-sm' : 'bg-primary-50 dark:bg-[#2A2A2A] text-primary-600 dark:text-primary-400'
                         }`}>
                         <Clock size={28} />
                     </div>
@@ -213,20 +216,24 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
                             {showFullDate && (
                                 <span className="flex items-center"><Calendar size={14} className="mr-1.5" /> {session.date}</span>
                             )}
-                            <span className="flex items-center"><Clock size={14} className="mr-1.5" /> {session.startTime} ({session.duration}m)</span>
+                            <span className="flex items-center"><Clock size={14} className="mr-1.5" /> {session.startTime} {['completed', 'stopped early', 'abandoned'].includes(session.status) ? (
+                                `(${session.actualDuration ?? 0}m studied / ${session.plannedDuration ?? session.duration}m)`
+                            ) : (
+                                `(${session.plannedDuration ?? session.duration}m)`
+                            )}</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex flex-col items-center md:items-end gap-3">
-                    {session.status === 'running' || session.status === 'paused' ? (
+                    {session.status === 'active' || session.status === 'running' || session.status === 'paused' ? (
                         <div className="text-center md:text-right">
                             <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Remaining Time</p>
                             <span className="text-3xl font-black text-primary-600 dark:text-primary-400 font-mono tracking-tight">
                                 {formatTime(timeLeft)}
                             </span>
                         </div>
-                    ) : session.status === 'completed' && (
+                    ) : ['completed', 'stopped early', 'abandoned'].includes(session.status) && (
                         <div className="flex items-center space-x-6">
                             <div className="text-center">
                                 <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Focus</p>
@@ -287,7 +294,7 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
                                 </Button>
                             );
                         })()}
-                        {session.status === 'running' && (
+                        {['active', 'running'].includes(session.status) && (
                             <>
                                 <Button size="sm" variant="warning" onClick={() => onPause(session._id)}>
                                     <Pause size={16} className="mr-1.5" /> Pause
@@ -307,7 +314,7 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
                                 </Button>
                             </>
                         )}
-                        {session.status !== 'running' && session.status !== 'paused' && (
+                        {!['active', 'running', 'paused'].includes(session.status) && (
                             <button
                                 onClick={() => onDelete(session._id)}
                                 className="p-2.5 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
@@ -365,16 +372,16 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
                     {[...localTasks].sort((a,b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map((task) => (
                         <div key={task._id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-[#2A2A2A] rounded-xl group transition-all">
                             <button 
-                                onClick={() => session.status !== 'completed' && toggleLocalTask(task._id)} 
-                                disabled={session.status === 'completed'}
-                                className={`transition-transform active:scale-90 ${session.status === 'completed' ? 'cursor-default' : 'text-gray-400 hover:text-primary-500'}`}
+                                onClick={() => !['completed', 'stopped early', 'abandoned'].includes(session.status) && toggleLocalTask(task._id)} 
+                                disabled={['completed', 'stopped early', 'abandoned'].includes(session.status)}
+                                className={`transition-transform active:scale-90 ${['completed', 'stopped early', 'abandoned'].includes(session.status) ? 'cursor-default' : 'text-gray-400 hover:text-primary-500'}`}
                             >
-                                {task.completed ? <CheckIcon size={18} className={session.status === 'completed' ? 'text-gray-400 dark:text-gray-600' : 'text-primary-500'} /> : <Square size={18} className={session.status === 'completed' ? 'text-gray-300 dark:text-gray-600' : ''} />}
+                                {task.completed ? <CheckIcon size={18} className={['completed', 'stopped early', 'abandoned'].includes(session.status) ? 'text-gray-400 dark:text-gray-600' : 'text-primary-500'} /> : <Square size={18} className={['completed', 'stopped early', 'abandoned'].includes(session.status) ? 'text-gray-300 dark:text-gray-600' : ''} />}
                             </button>
                             <span className={`text-sm flex-1 ${task.completed ? 'line-through text-gray-400 dark:text-[#9CA3AF]' : 'text-gray-700 dark:text-[#E5E5E5]'}`}>
                                 {task.title}
                             </span>
-                            {session.status !== 'completed' && (
+                            {!['completed', 'stopped early', 'abandoned'].includes(session.status) && (
                                 <button onClick={() => deleteLocalTask(task._id)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-all p-1">
                                     <AlertCircle size={16} />
                                 </button>
@@ -383,7 +390,7 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
                     ))}
                 </div>
 
-                {session.status !== 'completed' && (
+                {!['completed', 'stopped early', 'abandoned'].includes(session.status) && (
                     <form onSubmit={handleAddLocalTask} className="flex relative mt-2">
                         <Plus size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input 
@@ -397,7 +404,7 @@ const SessionCard = ({ session, onStart, onPause, onResume, onStop, onDelete, sh
                 )}
             </div>
 
-            {session.status === 'running' && (
+            {['active', 'running'].includes(session.status) && (
                 <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center text-gray-700 dark:text-gray-300 font-bold">

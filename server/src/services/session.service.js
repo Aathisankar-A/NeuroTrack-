@@ -30,9 +30,14 @@ class SessionService {
             }
         }
 
+        const durationValue = sessionData.duration || sessionData.plannedDuration;
         return await Session.create({
             ...sessionData,
             userId,
+            duration: durationValue,
+            plannedDuration: durationValue,
+            actualDuration: 0,
+            completionPercentage: 0,
             status: 'scheduled',
         });
     }
@@ -48,7 +53,7 @@ class SessionService {
         if (!session) throw { statusCode: 404, message: 'Session not found' };
         if (session.status !== 'scheduled') throw { statusCode: 400, message: 'Only scheduled sessions can be started' };
 
-        session.status = 'running';
+        session.status = 'active';
         session.actualStartTime = new Date();
         session.startedAt = session.actualStartTime; // Backwards compatibility
         await session.save();
@@ -58,7 +63,7 @@ class SessionService {
     static async pauseSession(userId, sessionId) {
         const session = await Session.findOne({ _id: sessionId, userId });
         if (!session) throw { statusCode: 404, message: 'Session not found' };
-        if (session.status !== 'running') throw { statusCode: 400, message: 'Only running sessions can be paused' };
+        if (session.status !== 'active' && session.status !== 'running') throw { statusCode: 400, message: 'Only active sessions can be paused' };
 
         session.status = 'paused';
         session.pausedAt = new Date();
@@ -73,7 +78,7 @@ class SessionService {
 
         const pauseDurationSeconds = Math.floor((new Date() - new Date(session.pausedAt)) / 1000);
         session.pausedTime += pauseDurationSeconds;
-        session.status = 'running';
+        session.status = 'active';
         await session.save();
         return session;
     }
@@ -84,12 +89,30 @@ class SessionService {
 
         const { focusRating, energyLevel, distractionCount } = completionData;
 
-        session.status = 'completed';
         session.actualEndTime = new Date();
         session.endedAt = session.actualEndTime;
         session.focusRating = focusRating;
         session.energyLevel = energyLevel;
         session.distractionCount = distractionCount || 0;
+
+        const startTime = session.actualStartTime || session.startedAt || new Date();
+        const endTime = session.actualEndTime;
+        const elapsedSeconds = Math.max(0, Math.floor((endTime - startTime) / 1000) - (session.pausedTime || 0));
+        const actualDuration = Math.round(elapsedSeconds / 60);
+
+        session.actualDuration = actualDuration;
+
+        const plannedDuration = session.plannedDuration || session.duration || 30;
+        const completionPercentage = Math.min(100, Math.round((actualDuration / plannedDuration) * 100));
+        session.completionPercentage = completionPercentage;
+
+        if (actualDuration === 0) {
+            session.status = 'abandoned';
+        } else if (actualDuration >= plannedDuration) {
+            session.status = 'completed';
+        } else {
+            session.status = 'stopped early';
+        }
 
         await session.save();
 
@@ -109,7 +132,9 @@ class SessionService {
             const sessionTime = new Date(`${session.date}T${session.startTime}`);
             // If session was scheduled for more than 15 mins ago and not started
             if (now > new Date(sessionTime.getTime() + 15 * 60000)) {
-                session.status = 'missed';
+                session.status = 'abandoned';
+                session.actualDuration = 0;
+                session.completionPercentage = 0;
                 await session.save();
             }
         }

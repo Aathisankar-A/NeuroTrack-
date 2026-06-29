@@ -24,6 +24,8 @@ router.route('/')
 
 router.get('/mine', getMyRooms);
 
+router.post('/join', joinRoom);
+
 router.route('/:id')
     .get(getRoomDetails)
     .patch(updateRoom)

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Search, Plus, Users as UsersIcon, Filter, Loader2 } from 'lucide-react';
 import { Button, Input } from '../components/ui';
 import RoomCard from '../components/room/RoomCard';
+import SocialPanel from '../components/room/SocialPanel';
 import api from '../api/axios';
 import Modal from '../components/ui/Modal';
 import { useNavigate } from 'react-router-dom';
@@ -9,10 +10,11 @@ import { useNavigate } from 'react-router-dom';
 const Rooms = () => {
     const navigate = useNavigate();
     const [rooms, setRooms] = useState([]);
+    const [myRooms, setMyRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [roomTab, setRoomTab] = useState('public');
     
-    // Create Room State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [creating, setCreating] = useState(false);
     const [newRoom, setNewRoom] = useState({
@@ -23,6 +25,25 @@ const Rooms = () => {
         maxParticipants: 20,
         tags: ''
     });
+
+    const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+    const [joining, setJoining] = useState(false);
+    const [inviteCode, setInviteCode] = useState('');
+
+    const handleJoinWithCode = async (e) => {
+        e.preventDefault();
+        setJoining(true);
+        try {
+            const res = await api.post('/rooms/join', { inviteCode });
+            setIsJoinModalOpen(false);
+            navigate(`/rooms/${res.data.data._id}`);
+        } catch (err) {
+            console.error('Failed to join room', err);
+            alert(err.response?.data?.message || 'Failed to join room. Please check the code.');
+        } finally {
+            setJoining(false);
+        }
+    };
 
     const handleCreateRoom = async (e) => {
         e.preventDefault();
@@ -43,11 +64,29 @@ const Rooms = () => {
         }
     };
 
+    const handleDeleteRoom = async (roomId) => {
+        if (!window.confirm('Are you sure you want to delete this study room?')) return;
+        try {
+            await api.delete(`/rooms/${roomId}`);
+            setRooms(prev => prev.filter(r => r._id !== roomId));
+        } catch (err) {
+            console.error('Failed to delete room', err);
+            alert(err.response?.data?.message || 'Failed to delete room');
+        }
+    };
+
     useEffect(() => {
         const fetchRooms = async () => {
             try {
-                const res = await api.get('/rooms');
-                setRooms(res.data.data);
+                const [publicRes, mineRes] = await Promise.all([
+                    api.get('/rooms'),
+                    api.get('/rooms/mine')
+                ]);
+                setRooms(publicRes.data.data);
+                
+                // Keep only private rooms for the 'My Private Rooms' tab
+                const privateMine = mineRes.data.data.filter(r => r.type === 'private');
+                setMyRooms(privateMine);
             } catch (err) {
                 console.error('Failed to fetch rooms', err);
             } finally {
@@ -58,7 +97,9 @@ const Rooms = () => {
         fetchRooms();
     }, []);
 
-    const filteredRooms = rooms.filter(room => 
+    const displayedRooms = roomTab === 'public' ? rooms : myRooms;
+
+    const filteredRooms = displayedRooms.filter(room => 
         room.name.toLowerCase().includes(search.toLowerCase()) || 
         room.tags?.some(tag => tag.toLowerCase().includes(search.toLowerCase()))
     );
@@ -71,11 +112,30 @@ const Rooms = () => {
                     <p className="text-gray-500 dark:text-[#9CA3AF] mt-1 font-medium">Join a collaborative session or create your own focus environment.</p>
                 </div>
                 <div className="flex space-x-3">
+                    <Button variant="outline" className="flex items-center space-x-2" onClick={() => setIsJoinModalOpen(true)}>
+                        <span>Join with Code</span>
+                    </Button>
                     <Button className="flex items-center space-x-2" onClick={() => setIsCreateModalOpen(true)}>
                         <Plus size={18} />
                         <span>Create Room</span>
                     </Button>
                 </div>
+            </div>
+
+            {/* Room Tabs */}
+            <div className="flex gap-6 border-b border-gray-200 dark:border-[#2A2A2A] pb-px">
+                <button 
+                    onClick={() => setRoomTab('public')}
+                    className={`pb-3 font-semibold text-sm transition-colors border-b-2 ${roomTab === 'public' ? 'text-primary-600 border-primary-600' : 'text-gray-500 border-transparent hover:text-gray-800 dark:hover:text-gray-300'}`}
+                >
+                    🌐 Public Rooms
+                </button>
+                <button 
+                    onClick={() => setRoomTab('private')}
+                    className={`pb-3 font-semibold text-sm transition-colors border-b-2 ${roomTab === 'private' ? 'text-primary-600 border-primary-600' : 'text-gray-500 border-transparent hover:text-gray-800 dark:hover:text-gray-300'}`}
+                >
+                    🔒 My Private Rooms
+                </button>
             </div>
 
             {/* Filters & Search */}
@@ -105,20 +165,30 @@ const Rooms = () => {
                         <div key={i} className="h-48 bg-gray-50 dark:bg-[#1E1E1E] rounded-2xl animate-pulse"></div>
                     ))}
                 </div>
-            ) : filteredRooms.length === 0 ? (
-                <div className="text-center py-20 bg-gray-50 dark:bg-[#1E1E1E] rounded-3xl border border-dashed border-gray-200 dark:border-[#2A2A2A]">
-                    <div className="mx-auto h-16 w-16 bg-white dark:bg-[#121212] rounded-full flex items-center justify-center mb-4 shadow-sm">
-                        <UsersIcon size={32} className="text-gray-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-[#E5E5E5] mb-2">No rooms found</h3>
-                    <p className="text-gray-500 dark:text-[#9CA3AF] font-medium max-w-sm mx-auto mb-6">There are no active public rooms matching your criteria. Why not create one?</p>
-                    <Button onClick={() => setIsCreateModalOpen(true)}>Create a Room</Button>
-                </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredRooms.map(room => (
-                        <RoomCard key={room._id} room={room} />
-                    ))}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <div className="lg:col-span-3 space-y-6">
+                        {filteredRooms.length === 0 ? (
+                            <div className="text-center py-20 bg-gray-50 dark:bg-[#1E1E1E] rounded-3xl border border-dashed border-gray-200 dark:border-[#2A2A2A]">
+                                <div className="mx-auto h-16 w-16 bg-white dark:bg-[#121212] rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                    <UsersIcon size={32} className="text-gray-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-[#E5E5E5] mb-2">No rooms found</h3>
+                                <p className="text-gray-500 dark:text-[#9CA3AF] font-medium max-w-sm mx-auto mb-6">There are no active public rooms matching your criteria. Why not create one?</p>
+                                <Button onClick={() => setIsCreateModalOpen(true)}>Create a Room</Button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {filteredRooms.map(room => (
+                                    <RoomCard key={room._id} room={room} onDelete={handleDeleteRoom} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="lg:col-span-1 h-[600px] sticky top-6">
+                        <SocialPanel />
+                    </div>
                 </div>
             )}
 
@@ -148,6 +218,17 @@ const Rooms = () => {
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Room Type</label>
+                            <select 
+                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#1E1E1E] text-gray-900 dark:text-[#E5E5E5] focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 font-medium"
+                                value={newRoom.type}
+                                onChange={e => setNewRoom({...newRoom, type: e.target.value})}
+                            >
+                                <option value="public">Public (Visible to everyone)</option>
+                                <option value="private">Private (Invite only)</option>
+                            </select>
+                        </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Mode</label>
                             <select 
@@ -183,6 +264,31 @@ const Rooms = () => {
                         <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={creating} className="min-w-[120px]">
                             {creating ? <Loader2 size={18} className="animate-spin" /> : 'Create Room'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Join Room Modal */}
+            <Modal
+                isOpen={isJoinModalOpen}
+                onClose={() => setIsJoinModalOpen(false)}
+                title="Join Study Room"
+            >
+                <form onSubmit={handleJoinWithCode} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Invite Code *</label>
+                        <Input 
+                            required 
+                            placeholder="e.g. 8A2B9C" 
+                            value={inviteCode}
+                            onChange={e => setInviteCode(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-[#2A2A2A]">
+                        <Button type="button" variant="ghost" onClick={() => setIsJoinModalOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={joining} className="min-w-[120px]">
+                            {joining ? <Loader2 size={18} className="animate-spin" /> : 'Join Room'}
                         </Button>
                     </div>
                 </form>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, ChevronLeft, ChevronRight, Users, Clock } from 'lucide-react';
+import { ArrowLeft, Share2, ChevronLeft, ChevronRight, Users, Clock, UserPlus } from 'lucide-react';
 import { Button } from '../components/ui';
+import Modal from '../components/ui/Modal';
 import SharedTimer from '../components/room/SharedTimer';
 import ParticipantList from '../components/room/ParticipantList';
 import ChatPanel from '../components/room/ChatPanel';
@@ -9,19 +10,20 @@ import Whiteboard from '../components/room/Whiteboard';
 import SharedNotes from '../components/room/SharedNotes';
 import VideoGrid from '../components/room/VideoGrid';
 import MediaControls from '../components/room/MediaControls';
-import AiFacilitatorPanel from '../components/room/AiFacilitatorPanel';
+import SocialPanel from '../components/room/SocialPanel';
 import { useRoom } from '../hooks/useRoom';
 import { useWebRTC } from '../hooks/useWebRTC';
+import useAuth from '../hooks/useAuth';
 import api from '../api/axios';
-import { Bot } from 'lucide-react';
 
 const RoomSession = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [roomDetails, setRoomDetails] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const { participants, timer, startTimer, pauseTimer } = useRoom(id);
+    const { participants, timer, startTimer, pauseTimer, resetTimer, inviteUser } = useRoom(id);
     const {
         localStream,
         remoteStreams,
@@ -55,7 +57,19 @@ const RoomSession = () => {
 
     const [activeTab, setActiveTab] = useState('video'); // 'video', 'whiteboard' or 'notes'
     const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
-    const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+    const handleShareInvite = () => {
+        if (!roomDetails) return;
+        const link = `${window.location.origin}/rooms/${roomDetails._id}`;
+        const text = `Join my study room!\nLink: ${link}\nInvite Code: ${roomDetails.inviteCode}`;
+        navigator.clipboard.writeText(text).then(() => {
+            alert(`Invite link and code copied to clipboard!\nCode: ${roomDetails.inviteCode}`);
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            alert(`Invite Code: ${roomDetails.inviteCode}`);
+        });
+    };
 
     if (loading) {
         return <div className="h-[60vh] flex items-center justify-center">Loading Room...</div>;
@@ -76,24 +90,14 @@ const RoomSession = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        className={`rounded-xl ${isAiPanelOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/30 dark:border-indigo-800' : ''}`}
-                        onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
-                    >
-                        <Bot size={16} className="mr-2" /> NeuroBot
+                    <Button variant="outline" className="rounded-xl" onClick={() => setIsInviteModalOpen(true)}>
+                        <UserPlus size={16} className="mr-2" /> Invite Friend
                     </Button>
-                    <Button variant="outline" className="rounded-xl">
+                    <Button variant="outline" className="rounded-xl" onClick={handleShareInvite}>
                         <Share2 size={16} className="mr-2" /> Share Invite
                     </Button>
                 </div>
             </div>
-            
-            <AiFacilitatorPanel 
-                roomId={id} 
-                isOpen={isAiPanelOpen} 
-                onClose={() => setIsAiPanelOpen(false)} 
-            />
 
             <div className={`grid grid-cols-1 gap-6 flex-1 min-h-0 pb-6 ${isLeftPanelOpen ? 'lg:grid-cols-12' : 'lg:grid-cols-[70px_1fr_300px]'}`}>
                 
@@ -111,6 +115,7 @@ const RoomSession = () => {
                             timerState={timer} 
                             onStart={startTimer} 
                             onPause={pauseTimer} 
+                            onReset={resetTimer}
                         />
                         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                             <ParticipantList participants={participants.length > 0 ? participants : roomDetails.participants.map(p => p.user)} />
@@ -192,6 +197,23 @@ const RoomSession = () => {
                 </div>
                 
             </div>
+
+            {/* Invite Friend Modal */}
+            <Modal
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+                title="Invite Friends to Room"
+            >
+                <div className="h-[400px]">
+                    <SocialPanel 
+                        currentRoomId={id} 
+                        onInvite={(friendId) => {
+                            inviteUser(friendId, roomDetails.name, user?.name);
+                            alert('Invitation sent!');
+                        }} 
+                    />
+                </div>
+            </Modal>
         </div>
     );
 };
