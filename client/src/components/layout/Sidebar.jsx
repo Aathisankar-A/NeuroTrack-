@@ -34,41 +34,12 @@ const Sidebar = () => {
         links.splice(1, 0, { to: '/teacher', name: 'Teacher Dashboard', icon: <GraduationCap size={20} /> });
     }
 
-    // XP constants (matching backend)
-    const getXpForLevel = (level) => {
-        if (level <= 1) return 0;
-        return Math.floor(100 * Math.pow(1.5, level - 1));
-    };
-
-    const currentLevel = user?.level || 1;
-    const currentXp = user?.xp || 0;
-    const baseLevelXp = getXpForLevel(currentLevel);
-    const nextLevelXp = getXpForLevel(currentLevel + 1);
-    const progress = Math.min(100, Math.round(((currentXp - baseLevelXp) / (nextLevelXp - baseLevelXp)) * 100));
-
     return (
         <div className="h-full w-64 bg-white dark:bg-[#121212] border-r border-gray-200 dark:border-[#1E1E1E] flex flex-col">
             <div className="p-6">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">
                     NeuroTrack
                 </h1>
-
-                {/* User Cognitive Rank Section */}
-                <div className="mt-6 p-4 bg-gray-50 dark:bg-[#1E1E1E] rounded-xl border border-gray-100 dark:border-[#2A2A2A]">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Cognitive Level</span>
-                        <span className="text-sm font-black text-primary-600 dark:text-primary-400">{currentLevel}</span>
-                    </div>
-                    <div className="h-2 w-full bg-gray-200 dark:bg-[#2A2A2A] rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-primary-600 transition-all duration-1000"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
-                    <p className="mt-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 text-right">
-                        {currentXp} / {nextLevelXp} XP
-                    </p>
-                </div>
             </div>
 
             <nav className="flex-1 px-4 space-y-2">
