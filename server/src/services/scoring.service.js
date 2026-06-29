@@ -20,9 +20,13 @@ class ScoringService {
         const sessions = await Session.find({
             userId,
             startedAt: { $gte: startOfDay, $lte: endOfDay },
+            status: { $in: ['completed', 'stopped early', 'abandoned'] }
         });
 
-        const deepFocusMinutes = sessions.reduce((sum, s) => sum + s.duration, 0);
+        const deepFocusMinutes = sessions.reduce((sum, s) => {
+            const actual = s.actualDuration !== undefined ? s.actualDuration : (s.status === 'completed' ? s.duration : 0);
+            return sum + actual;
+        }, 0);
         const totalDistractions = sessions.reduce((sum, s) => sum + s.distractionCount, 0);
 
         // 2. Get tasks for the day

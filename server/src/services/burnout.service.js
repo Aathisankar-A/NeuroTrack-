@@ -16,6 +16,7 @@ class BurnoutService {
         const recentSessions = await Session.find({
             userId,
             startedAt: { $gte: sevenDaysAgo },
+            status: { $in: ['completed', 'stopped early', 'abandoned'] }
         }).sort({ startedAt: 1 });
 
         const recentScores = await ProductivityScore.find({
@@ -41,7 +42,10 @@ class BurnoutService {
         const energyDecline = secondHalfEnergy < firstHalfEnergy * 0.8 || secondHalfEnergy < 4;
 
         // B. Workload Intensity (Sessions per day & Total Duration)
-        const totalDuration = recentSessions.reduce((sum, s) => sum + s.duration, 0);
+        const totalDuration = recentSessions.reduce((sum, s) => {
+            const actual = s.actualDuration !== undefined ? s.actualDuration : (s.status === 'completed' ? s.duration : 0);
+            return sum + actual;
+        }, 0);
         const avgDailyDuration = totalDuration / 7;
         const sessionsPerDay = recentSessions.length / 7;
 

@@ -90,6 +90,9 @@ const Analytics = () => {
         todayFocusMinutes = 0,
         weeklyFocusMinutes = 0,
         sessionsCompleted = 0,
+        sessionsStoppedEarly = 0,
+        sessionsAbandoned = 0,
+        totalSessionsFinished = 0,
         tasksCompleted = 0,
         taskCompletionRate = 0,
         subjectDistribution = [],
@@ -308,8 +311,13 @@ const Analytics = () => {
                                 <Doughnut data={doughnutData} options={doughnutOptions} />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none md:pr-32 pr-24">
                                     <div className="text-center">
-                                        <p className="text-3xl font-black text-gray-900 dark:text-[#E5E5E5]">{sessionsCompleted}</p>
+                                        <p className="text-3xl font-black text-gray-900 dark:text-[#E5E5E5]">{totalSessionsFinished || (sessionsCompleted + sessionsStoppedEarly + sessionsAbandoned)}</p>
                                         <p className="text-[10px] font-bold text-gray-400 dark:text-[#9CA3AF] uppercase tracking-widest mt-0.5">Sessions</p>
+                                        <div className="text-[9px] font-bold text-gray-400 mt-1 flex gap-1 justify-center">
+                                            <span className="text-green-500">✓{sessionsCompleted}</span>
+                                            <span className="text-yellow-500">⚠{sessionsStoppedEarly}</span>
+                                            <span className="text-red-400">✗{sessionsAbandoned}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

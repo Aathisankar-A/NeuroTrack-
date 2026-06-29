@@ -59,7 +59,15 @@ class AnalyticsService {
                 $group: {
                     _id: '$subject',
                     avgFocus: { $avg: '$focusRating' },
-                    totalDuration: { $sum: '$duration' },
+                    totalDuration: {
+                        $sum: {
+                            $cond: [
+                                { $isNumber: '$actualDuration' },
+                                '$actualDuration',
+                                { $cond: [{ $eq: ['$status', 'completed'] }, '$duration', 0] }
+                            ]
+                        }
+                    },
                 },
             },
         ]);
@@ -106,12 +114,15 @@ class AnalyticsService {
         sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
         const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
 
-        const sessions = await Session.find({ userId, status: 'completed' });
+        const sessions = await Session.find({ userId, status: { $in: ['completed', 'stopped early', 'abandoned'] } });
         const tasks = await Task.find({ userId });
 
         let todayFocusMinutes = 0;
         let weeklyFocusMinutes = 0;
-        const sessionsCompleted = sessions.length;
+        
+        let sessionsCompleted = 0;
+        let sessionsStoppedEarly = 0;
+        let sessionsAbandoned = 0;
 
         const subjectMap = {};
         const dailyMap = {};
@@ -125,18 +136,24 @@ class AnalyticsService {
         }
 
         sessions.forEach(s => {
+            if (s.status === 'completed') sessionsCompleted++;
+            else if (s.status === 'stopped early') sessionsStoppedEarly++;
+            else if (s.status === 'abandoned') sessionsAbandoned++;
+
+            const actual = s.actualDuration !== undefined ? s.actualDuration : (s.status === 'completed' ? s.duration : 0);
+
             if (s.date === todayStr) {
-                todayFocusMinutes += s.duration;
+                todayFocusMinutes += actual;
             }
             if (s.date >= sevenDaysAgoStr) {
-                weeklyFocusMinutes += s.duration;
+                weeklyFocusMinutes += actual;
                 if (dailyMap[s.date] !== undefined) {
-                    dailyMap[s.date] += s.duration;
+                    dailyMap[s.date] += actual;
                 }
             }
             // Subject grouping across all completed sessions
             if (!subjectMap[s.subject]) subjectMap[s.subject] = 0;
-            subjectMap[s.subject] += s.duration;
+            subjectMap[s.subject] += actual;
         });
 
         const subjectDistribution = Object.keys(subjectMap).map(subject => ({
@@ -160,6 +177,9 @@ class AnalyticsService {
             todayFocusMinutes,
             weeklyFocusMinutes,
             sessionsCompleted,
+            sessionsStoppedEarly,
+            sessionsAbandoned,
+            totalSessionsFinished: sessionsCompleted + sessionsStoppedEarly + sessionsAbandoned,
             tasksCompleted,
             taskCompletionRate,
             subjectDistribution,
