@@ -16,7 +16,7 @@ class AIService {
 
         // 1. Fetch historical data
         const [sessions, tasks, scores, burnoutLogs] = await Promise.all([
-            Session.find({ userId, startedAt: { $gte: sevenDaysAgo } }).sort({ startedAt: -1 }),
+            Session.find({ userId, startedAt: { $gte: sevenDaysAgo }, status: { $in: ['completed', 'stopped early', 'abandoned'] } }).sort({ startedAt: -1 }),
             Task.find({ userId, createdAt: { $gte: sevenDaysAgo } }),
             ProductivityScore.find({ userId, date: { $gte: sevenDaysAgo } }).sort({ date: -1 }),
             BurnoutLog.find({ userId, createdAt: { $gte: sevenDaysAgo } }).sort({ createdAt: -1 })
@@ -24,14 +24,21 @@ class AIService {
 
         // 2. Format data for AI
         const dataSummary = {
-            focusSessions: sessions.map(s => ({
-                duration: s.duration,
-                subject: s.subject,
-                rating: s.focusRating,
-                energy: s.energyLevel,
-                distractions: s.distractionCount,
-                date: s.startedAt
-            })),
+            focusSessions: sessions.map(s => {
+                const actual = s.actualDuration !== undefined ? s.actualDuration : (s.status === 'completed' ? s.duration : 0);
+                const planned = s.plannedDuration !== undefined ? s.plannedDuration : s.duration;
+                return {
+                    plannedDuration: planned,
+                    actualDuration: actual,
+                    completionPercentage: s.completionPercentage || (planned ? Math.round((actual / planned) * 100) : 0),
+                    subject: s.subject,
+                    rating: s.focusRating,
+                    energy: s.energyLevel,
+                    distractions: s.distractionCount,
+                    date: s.startedAt,
+                    status: s.status
+                };
+            }),
             taskPerformance: {
                 total: tasks.length,
                 completed: tasks.filter(t => t.completed).length,
@@ -61,7 +68,7 @@ class AIService {
         sevenDaysAgo.setUTCHours(0, 0, 0, 0);
 
         const [sessions, tasks, scores] = await Promise.all([
-            Session.find({ userId, startedAt: { $gte: sevenDaysAgo } }).sort({ startedAt: -1 }),
+            Session.find({ userId, startedAt: { $gte: sevenDaysAgo }, status: { $in: ['completed', 'stopped early', 'abandoned'] } }).sort({ startedAt: -1 }),
             Task.find({ userId }),
             ProductivityScore.findOne({ userId }).sort({ date: -1 })
         ]);
@@ -74,12 +81,16 @@ class AIService {
         const formattedSessions = [];
 
         sessions.forEach(s => {
+            const actual = s.actualDuration !== undefined ? s.actualDuration : (s.status === 'completed' ? s.duration : 0);
+            const planned = s.plannedDuration !== undefined ? s.plannedDuration : s.duration;
             if (!subjectsMap[s.subject]) subjectsMap[s.subject] = 0;
-            subjectsMap[s.subject] += s.duration;
+            subjectsMap[s.subject] += actual;
 
             formattedSessions.push({
                 subject: s.subject,
-                duration: s.duration,
+                plannedDuration: planned,
+                actualDuration: actual,
+                completionPercentage: s.completionPercentage || (planned ? Math.round((actual / planned) * 100) : 0),
                 focusRating: s.focusRating,
                 status: s.status
             });

@@ -11,7 +11,7 @@ class QuizController {
     static generate = asyncHandler(async (req, res) => {
         const { topic, difficulty, numQuestions, useResources, resourceIds } = req.body;
         const quiz = await QuizService.generate(topic, difficulty, numQuestions, useResources, resourceIds);
-        
+
         res.json(ApiResponse.success(quiz, 'Quiz generated successfully'));
     });
 
