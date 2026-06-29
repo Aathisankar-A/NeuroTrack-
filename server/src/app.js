@@ -24,6 +24,7 @@ import settingsRoutes from './routes/settings.routes.js';
 import resourceRoutes from './routes/resource.routes.js';
 import roomRoutes from './routes/room.routes.js';
 import classroomRoutes from './routes/classroom.routes.js';
+import socialRoutes from './routes/social.routes.js';
 
 // Load background jobs
 import './jobs/index.js';
@@ -97,6 +98,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/classrooms', classroomRoutes);
+app.use('/api/social', socialRoutes);
 
 // 5. Health Check
 app.get('/api/health', (req, res) => {
